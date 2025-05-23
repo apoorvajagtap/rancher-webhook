@@ -16,7 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func Test_GetKubeAPIServerArg(t *testing.T) {
+func Test_GetKubeAPIServerArgs(t *testing.T) {
 	tests := []struct {
 		name     string
 		cluster  *v1.Cluster
@@ -64,15 +64,15 @@ func Test_GetKubeAPIServerArg(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := getKubeAPIServerArg(tt.cluster)
-			if !reflect.DeepEqual(*tt.expected, *got) {
-				t.Errorf("got: [%v], expected: [%v]", *got, *tt.expected)
+			got := getKubeAPIServerArgs(tt.cluster)
+			if !reflect.DeepEqual(*tt.expected, got) {
+				t.Errorf("got: [%v], expected: [%v]", got, tt.expected)
 			}
 		})
 	}
 }
 
-func Test_SetKubeAPIServerArg(t *testing.T) {
+func Test_SetKubeAPIServerArgs(t *testing.T) {
 	tests := []struct {
 		name     string
 		arg      keyValueArgs
@@ -143,13 +143,11 @@ func Test_SetKubeAPIServerArg(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := newKeyValueArgs()
-			expected := newKeyValueArgs()
-			setKubeAPIServerArg(tt.arg, tt.cluster)
-			got.parseFromRawArgs(tt.cluster.Spec.RKEConfig.MachineGlobalConfig.Data["kube-apiserver-arg"])
-			expected.parseFromRawArgs(tt.expected.Spec.RKEConfig.MachineGlobalConfig.Data["kube-apiserver-arg"])
-			if !reflect.DeepEqual(*got, *expected) {
-				t.Errorf("got: %v, expected: %v", *got, *expected)
+			setKubeAPIServerArgs(tt.arg, tt.cluster)
+			got, _ := parseFromRawArgs(tt.cluster.Spec.RKEConfig.MachineGlobalConfig.Data["kube-apiserver-arg"])
+			expected, _ := parseFromRawArgs(tt.expected.Spec.RKEConfig.MachineGlobalConfig.Data["kube-apiserver-arg"])
+			if !reflect.DeepEqual(got, expected) {
+				t.Errorf("got: %v, expected: %v", got, expected)
 			}
 		})
 	}
@@ -911,5 +909,25 @@ func TestDynamicSchemaDrop(t *testing.T) {
 				assert.True(t, reflect.DeepEqual(tt.expected, tt.cluster.Spec.RKEConfig.MachinePools))
 			}
 		})
+	}
+}
+
+var table = []struct {
+	cluster *v1.Cluster
+}{
+	{cluster: clusterWithKubeAPIServerArg2()},
+	{cluster: clusterWithKubeAPIServerArg3()},
+	{cluster: clusterWithKubeAPIServerArg()},
+}
+
+func BenchmarkGetKubeAPIServerArg(b *testing.B) {
+	b.ResetTimer()
+	for _, row := range table {
+		for i := 0; i < b.N; i++ {
+			arg := getKubeAPIServerArgs(row.cluster)
+			if arg == nil {
+				b.Fatal("unexpected nil result")
+			}
+		}
 	}
 }
